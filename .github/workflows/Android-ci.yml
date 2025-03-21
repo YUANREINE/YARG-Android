@@ -53,11 +53,7 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      # 6️⃣ Clean and Sync Dependencies (Fixes dependency issues)
-      - name: Clean and Sync Dependencies
-        run: gradle clean build --refresh-dependencies --no-daemon
-
-      # 7️⃣ Build Debug APK
+      # 6️⃣ Build Debug APK
       - name: Build Debug APK
         run: gradle assembleDebug --stacktrace --no-daemon
 
@@ -67,4 +63,3 @@ jobs:
         with:
           name: Debug-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          
