@@ -1,7 +1,6 @@
-name = "Android CI Build & Install (Release)"
+name = "Android CI (Pull Request Auto-Build)"
 
 on {
-    push {}
     pull_request {}
 }
 
@@ -65,25 +64,17 @@ jobs {
                 )
             }
 
-            // 6️⃣ Authenticate with GitHub Token (Instead of Keystore)
-            +step("Authenticate with GitHub Token") {
-                run = """
-                    echo "Using GitHub Token for authentication..."
-                    export GITHUB_AUTH_TOKEN=\${{ secrets.GITHUB_TOKEN }}
-                """.trimIndent()
+            // 6️⃣ Build Debug APK (No Keystore Needed)
+            +step("Build Debug APK") {
+                run = "/opt/gradle/gradle-8.6/bin/gradle assembleDebug --stacktrace --no-daemon"
             }
 
-            // 7️⃣ Build Release APK
-            +step("Build Release APK") {
-                run = "/opt/gradle/gradle-8.6/bin/gradle assembleRelease --stacktrace --no-daemon"
-            }
-
-            // 8️⃣ Upload Release APK
-            +step("Upload Release APK") {
+            // 7️⃣ Upload Debug APK
+            +step("Upload Debug APK") {
                 uses = "actions/upload-artifact@v4"
                 with = mapOf(
-                    "name" to "Release-APK",
-                    "path" to "app/build/outputs/apk/release/app-release.apk"
+                    "name" to "Debug-APK",
+                    "path" to "app/build/outputs/apk/debug/app-debug.apk"
                 )
             }
         }
