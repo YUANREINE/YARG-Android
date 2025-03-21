@@ -1,4 +1,4 @@
-name: Android CI Build
+name: Android CI Build (Without Gradle Wrapper)
 
 on: [push, pull_request]
 
@@ -22,7 +22,7 @@ jobs:
       - name: Install Android SDK
         run: |
           sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk unzip wget dos2unix
+          sudo apt-get install -y openjdk-17-jdk unzip wget
 
           # Download and install command-line tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
@@ -36,23 +36,13 @@ jobs:
           # Install required SDK packages
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      # 4️⃣ Ensure Gradle Wrapper Exists (Fixes missing gradlew issues)
-      - name: Ensure Gradle Wrapper Exists
+      # 4️⃣ Install System Gradle (Instead of using gradlew)
+      - name: Install Gradle
         run: |
-          if [ ! -f "gradlew" ]; then
-            echo "Gradle Wrapper is missing! Re-generating..."
-            ./gradlew wrapper --gradle-version 8.4
-          fi
+          sudo apt-get install -y gradle
+          gradle --version
 
-      # 5️⃣ Convert gradlew to Unix Format (Fixes line ending issues)
-      - name: Convert gradlew to Unix Format
-        run: dos2unix gradlew
-
-      # 6️⃣ Grant Execute Permission to Gradlew
-      - name: Grant Execute Permission to Gradlew
-        run: chmod +x gradlew
-
-      # 7️⃣ Cache Gradle Dependencies (Speeds up builds)
+      # 5️⃣ Cache Gradle Dependencies (Speeds up builds)
       - name: Cache Gradle Dependencies
         uses: actions/cache@v4
         with:
@@ -63,13 +53,13 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      # 8️⃣ Clean and Sync Dependencies (Fixes dependency issues)
+      # 6️⃣ Clean and Sync Dependencies (Fixes dependency issues)
       - name: Clean and Sync Dependencies
-        run: ./gradlew clean build --refresh-dependencies --no-daemon
+        run: gradle clean build --refresh-dependencies --no-daemon
 
-      # 9️⃣ Build Debug APK
+      # 7️⃣ Build Debug APK
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace --no-daemon
+        run: gradle assembleDebug --stacktrace --no-daemon
 
       # 🔟 Upload Debug APK
       - name: Upload Debug APK
