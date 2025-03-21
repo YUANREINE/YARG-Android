@@ -1,4 +1,4 @@
-name: Android CI Build (Without Gradle Wrapper)
+name: Android CI Build & Install
 
 on: [push, pull_request]
 
@@ -22,7 +22,7 @@ jobs:
       - name: Install Android SDK
         run: |
           sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk unzip wget
+          sudo apt-get install -y openjdk-17-jdk unzip wget adb
 
           # Download and install command-line tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
@@ -53,13 +53,9 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      # 6️⃣ Build Debug APK
-      - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace --no-daemon
-
-      # 🔟 Upload Debug APK
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+      # 6️⃣ Build and Install the App Directly
+      - name: Build and Install the App
+        run: |
+          gradle assembleRelease --stacktrace --no-daemon
+          adb install -r app/build/outputs/apk/release/app-release.apk
+          
