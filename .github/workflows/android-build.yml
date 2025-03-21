@@ -45,16 +45,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-caches-
       - name: Make Gradlew Executable
-        run: cd android && chmod +x ./gradlew
-        # Build Command
+        run: cd android && chmod +x ./gradle
 
       - name: Build Android ${{inputs.environment == 'release' && 'Release' || 'Debug'}}
         run: |
-          cd android && ./gradlew bundle${{inputs.environment == 'release' && 'Release' || 'Debug'}} --no-daemon
-
-      # Upload to Artifact
+          cd android && ./gradlew bundle${{inputs.environment == 'release' && 'Release' || 'Debug'}} --no-daemo
+          
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: FinderUK.aab
-          path: "android/app/build/outputs/bundle/release/app-release.aab"
+          name: YARG-Android-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
