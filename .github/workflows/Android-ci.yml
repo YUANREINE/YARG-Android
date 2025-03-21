@@ -1,4 +1,4 @@
-name: Android CI Build & Install
+name: Android CI Build & Install (Release)
 
 on: [push, pull_request]
 
@@ -34,12 +34,16 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
           
           # Install required SDK packages
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "system-images;android-30;google_apis;x86_64"
 
-      # 4️⃣ Install System Gradle (Instead of using gradlew)
-      - name: Install Gradle
+      # 4️⃣ Install the Latest Gradle Manually
+      - name: Install Latest Gradle
         run: |
-          sudo apt-get install -y gradle
+          wget https://services.gradle.org/distributions/gradle-8.6-bin.zip -O gradle.zip
+          sudo mkdir -p /opt/gradle
+          sudo unzip -d /opt/gradle gradle.zip
+          echo "export PATH=/opt/gradle/gradle-8.6/bin:$PATH" >> $HOME/.bashrc
+          source $HOME/.bashrc
           gradle --version
 
       # 5️⃣ Cache Gradle Dependencies (Speeds up builds)
@@ -53,9 +57,23 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      # 6️⃣ Build and Install the App Directly
-      - name: Build and Install the App
+      # 6️⃣ Generate Keystore for Signing (if not provided)
+      - name: Generate Keystore (if missing)
         run: |
-          gradle assembleRelease --stacktrace --no-daemon
-          adb install -r app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "release.keystore" ]; then
+            echo "Generating temporary keystore..."
+            keytool -genkeypair -v -keystore release.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias release -storepass android -keypass android
+          fi
+
+      # 7️⃣ Build Signed Release APK
+      - name: Build Signed Release APK
+        run: |
+          /opt/gradle/gradle-8.6/bin/gradle assembleRelease --stacktrace --no-daemon
+
+      # 8️⃣ Upload Release APK (Artifact)
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Release-APK
+          path: app/build/outputs/apk/release/app-release.apk
           
