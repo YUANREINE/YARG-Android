@@ -1,92 +1,66 @@
-name = "Android CI Build & Install (Release)"
+#!/usr/bin/env kotlin
+
+name = "Build and Release APK"
 
 on {
-    push {}
-    pull_request {}
+    push {
+        branches = listOf("main") // Change if needed
+    }
+    pull_request {
+        branches = listOf("main")
+    }
+    workflow_dispatch()
 }
 
 jobs {
     "build" {
         runsOn = "ubuntu-latest"
-
+        
         steps {
-            // 1️⃣ Checkout the repository code
-            +step("Checkout Code") {
-                uses = "actions/checkout@v4"
-            }
+            - uses("actions/checkout@v4")
 
-            // 2️⃣ Set up Java JDK 17
-            +step("Set up JDK 17") {
-                uses = "actions/setup-java@v4"
-                with = mapOf(
+            - uses("actions/setup-java@v3") {
+                with(
                     "distribution" to "temurin",
                     "java-version" to "17"
                 )
             }
 
-            // 3️⃣ Install Android SDK
-            +step("Install Android SDK") {
-                run = """
-                    sudo apt-get update
-                    sudo apt-get install -y openjdk-17-jdk unzip wget adb
+            - run("chmod +x gradlew")
 
-                    wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-                    mkdir -p $ANDROID_HOME/cmdline-tools
-                    unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-                    mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+            - run("./gradlew assembleDebug")
 
-                    yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-                    $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "system-images;android-30;google_apis;x86_64"
-                """.trimIndent()
+            - uses("actions/upload-artifact@v4") {
+                with(
+                    "name" to "YARG-Android-APK",
+                    "path" to "app/build/outputs/apk/debug/app-debug.apk"
+                )
             }
+        }
+    }
 
-            // 4️⃣ Install Latest Gradle
-            +step("Install Latest Gradle") {
-                run = """
-                    wget https://services.gradle.org/distributions/gradle-8.6-bin.zip -O gradle.zip
-                    sudo mkdir -p /opt/gradle
-                    sudo unzip -d /opt/gradle gradle.zip
-                    echo "export PATH=/opt/gradle/gradle-8.6/bin:$PATH" >> $HOME/.bashrc
-                    source $HOME/.bashrc
-                    gradle --version
-                """.trimIndent()
-            }
+    "release" {
+        needs = listOf("build")
+        runsOn = "ubuntu-latest"
 
-            // 5️⃣ Cache Gradle Dependencies
-            +step("Cache Gradle Dependencies") {
-                uses = "actions/cache@v4"
-                with = mapOf(
-                    "path" to """
-                        ~/.gradle/caches
-                        ~/.gradle/wrapper
-                    """.trimIndent(),
-                    "key" to "gradle-\${{ runner.os }}-\${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}",
-                    "restore-keys" to "gradle-\${{ runner.os }}-"
+        steps {
+            - uses("actions/download-artifact@v4") {
+                with(
+                    "name" to "YARG-Android-APK",
+                    "path" to "app/build/outputs/apk/debug/"
                 )
             }
 
-            // 6️⃣ Generate Keystore (if missing)
-            +step("Generate Keystore (if missing)") {
-                run = """
-                    if [ ! -f "release.keystore" ]; then
-                        echo "Generating temporary keystore..."
-                        keytool -genkeypair -v -keystore release.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias release -storepass android -keypass android
-                    fi
-                """.trimIndent()
-            }
-
-            // 7️⃣ Build Signed Release APK
-            +step("Build Signed Release APK") {
-                run = "/opt/gradle/gradle-8.6/bin/gradle assembleRelease --stacktrace --no-daemon"
-            }
-
-            // 8️⃣ Upload Release APK
-            +step("Upload Release APK") {
-                uses = "actions/upload-artifact@v4"
-                with = mapOf(
-                    "name" to "Release-APK",
-                    "path" to "app/build/outputs/apk/release/app-release.apk"
+            - uses("softprops/action-gh-release@v2") {
+                with(
+                    "tag_name" to "v1.0.${{ github.run_number }}",
+                    "release_name" to "YARG-Android Release v1.0.${{ github.run_number }}",
+                    "body" to "Automated release of YARG-Android APK.",
+                    "draft" to false,
+                    "prerelease" to false,
+                    "files" to "app/build/outputs/apk/debug/app-debug.apk"
                 )
+                env("GITHUB_TOKEN", "${{ secrets.GITHUB_TOKEN }}")
             }
         }
     }
